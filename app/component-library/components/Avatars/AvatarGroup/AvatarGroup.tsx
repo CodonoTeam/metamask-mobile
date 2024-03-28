@@ -1,12 +1,12 @@
 // Third party dependencies.
-import React, { useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { View } from 'react-native';
 
 // External dependencies.
 import { useStyles } from '../../../hooks';
-import { AvatarBaseSize } from '../AvatarBase';
-import Text, { TextVariant } from '../../Text';
-import AvatarToken from '../AvatarToken';
+import { AvatarSize } from '../Avatar/Avatar.types';
+import Text, { TextVariant } from '../../Texts/Text';
+import AvatarToken from '../Avatar/variants/AvatarToken';
 
 // Internal dependencies.
 import styleSheet from './AvatarGroup.styles';
@@ -17,7 +17,7 @@ import {
 } from './AvatarGroup.constants';
 
 const AvatarGroup = ({ tokenList }: AvatarGroupProps) => {
-  const extraSmallSize = AvatarBaseSize.Xs;
+  const extraSmallSize = AvatarSize.Xs;
   const sizeAsNumber = Number(extraSmallSize);
   const overflowCounter = tokenList.length - MAX_STACKED_AVATARS;
   const avatarSpacing = sizeAsNumber / 2;
@@ -26,18 +26,21 @@ const AvatarGroup = ({ tokenList }: AvatarGroupProps) => {
   const stackWidth = avatarSpacing * (amountOfVisibleAvatars + 1);
   const shouldRenderOverflowCounter = overflowCounter > 0;
 
-  const { styles } = useStyles(styleSheet, { stackWidth });
+  const { styles } = useStyles(styleSheet, {
+    stackWidth,
+    stackHeight: Number(extraSmallSize),
+  });
 
-  const renderTokenList = useMemo(
+  const renderTokenList = useCallback(
     () =>
       tokenList
         .slice(0, MAX_STACKED_AVATARS)
-        .map(({ name, imageSource, id }, index) => {
+        .map(({ name, imageSource }, index) => {
           const leftOffset = avatarSpacing * index;
 
           return (
             <View
-              key={`${name}-${id}`}
+              key={`${name}-${index}`}
               style={[styles.stackedAvatarWrapper, { left: leftOffset }]}
             >
               <AvatarToken
@@ -53,11 +56,11 @@ const AvatarGroup = ({ tokenList }: AvatarGroupProps) => {
 
   return (
     <View style={styles.base}>
-      <View style={styles.stack}>{renderTokenList}</View>
+      <View style={styles.stack}>{renderTokenList()}</View>
       <View style={styles.overflowCounterWrapper}>
         {shouldRenderOverflowCounter && (
           <Text
-            variant={TextVariant.sBodyMD}
+            variant={TextVariant.BodyMD}
             style={styles.textStyle}
             testID={STACKED_AVATARS_OVERFLOW_COUNTER_ID}
           >{`+${overflowCounter}`}</Text>

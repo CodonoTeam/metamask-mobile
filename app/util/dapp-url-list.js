@@ -137,7 +137,7 @@ export default [
   },
   {
     url: 'https://faucet.metamask.io/',
-    name: 'MetamMask Ether Faucet (Ropsten)',
+    name: 'MetaMask Ether Faucet (Ropsten)',
   },
   {
     url: 'https://www.minds.com/',
@@ -168,15 +168,11 @@ export default [
     name: 'Peepeth',
   },
   {
-    url: 'https://faucet.ropsten.be/',
-    name: 'Ropsten Ethereum Faucet',
-  },
-  {
     url: 'https://superrare.co/',
     name: 'SuperRare',
   },
   {
-    url: 'https://uniswap.exchange/',
+    url: 'https://app.uniswap.org/',
     name: 'Uniswap',
   },
   {

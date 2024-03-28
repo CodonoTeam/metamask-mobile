@@ -1,41 +1,42 @@
-/* eslint-disable no-console */
-
-// Third party dependencies.
-import React from 'react';
-import { storiesOf } from '@storybook/react-native';
-import { select, boolean } from '@storybook/addon-knobs';
-
 // External dependencies.
-import { IconName } from '../../Icon';
+import { IconName } from '../../Icons/Icon';
 
 // Internal dependencies.
-import ButtonIcon from './ButtonIcon';
-import { ButtonIconVariant } from './ButtonIcon.types';
+import { default as ButtonIconComponent } from './ButtonIcon';
+import { SAMPLE_BUTTONICON_PROPS } from './ButtonIcon.constants';
+import { ButtonIconSizes, ButtonIconVariants } from './ButtonIcon.types';
 
-storiesOf(' Component Library / ButtonIcon', module)
-  .addDecorator((getStory) => getStory())
-  .add('Default', () => {
-    const groupId = 'Props';
-    const iconNameSelector = select(
-      'iconName',
-      IconName,
-      IconName.LockFilled,
-      groupId,
-    );
-    const variantSelector = select(
-      'variant',
-      ButtonIconVariant,
-      ButtonIconVariant.Primary,
-      groupId,
-    );
-    const disabledSelector = boolean('disabled', false, groupId);
+const ButtonIconMeta = {
+  title: 'Component Library / Buttons',
+  component: ButtonIconComponent,
+  argTypes: {
+    iconName: {
+      options: IconName,
+      control: {
+        type: 'select',
+      },
+      defaultValue: SAMPLE_BUTTONICON_PROPS.iconName,
+    },
+    variant: {
+      options: ButtonIconVariants,
+      control: {
+        type: 'select',
+      },
+      defaultValue: SAMPLE_BUTTONICON_PROPS.variant,
+    },
+    size: {
+      options: ButtonIconSizes,
+      control: {
+        type: 'select',
+      },
+      defaultValue: SAMPLE_BUTTONICON_PROPS.size,
+    },
+    isDisabled: {
+      control: { type: 'boolean' },
+      defaultValue: SAMPLE_BUTTONICON_PROPS.isDisabled,
+    },
+  },
+};
+export default ButtonIconMeta;
 
-    return (
-      <ButtonIcon
-        variant={variantSelector}
-        iconName={iconNameSelector}
-        disabled={disabledSelector}
-        onPress={() => console.log("I'm clicked!")}
-      />
-    );
-  });
+export const ButtonIcon = {};

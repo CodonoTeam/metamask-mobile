@@ -1,4 +1,6 @@
-# ButtonIcon
+# [ButtonIcon](https://metamask-consensys.notion.site/Button-Icon-52fa285ebd8b4d56a22b6eabd08a8cf0)
+
+![ButtonIcon](./ButtonIcon.png)
 
 ButtonIcon is a icon component in the form of a button.
 
@@ -12,7 +14,7 @@ Icon name of the icon that will be displayed.
 
 | <span style="color:gray;font-size:14px">TYPE</span> | <span style="color:gray;font-size:14px">REQUIRED</span> |
 | :-------------------------------------------------- | :------------------------------------------------------ |
-| [IconName](../Icon/Icon.types.ts#L53)               | Yes                                                     |
+| [IconName](../Icons/Icon.types.ts)               | Yes                                                     |
 
 ### `onPress`
 
@@ -28,18 +30,14 @@ Optional enum to select between variants.
 
 | <span style="color:gray;font-size:14px">TYPE</span> | <span style="color:gray;font-size:14px">REQUIRED</span> | <span style="color:gray;font-size:14px">DEFAULT</span> |
 | :-------------------------------------------------- | :------------------------------------------------------ | :----------------------------------------------------- |
-| [ButtonIconVariant](./ButtonIcon.types.ts#L5)       | No                                                      | Primary                                                |
+| [ButtonIconVariants](./ButtonIcon.types.ts)       | No                                                      | Primary                                                |
 
 ## Usage
 
 ```javascript
-// Replace import with relative path.
-import ButtonIcon, {ButtonIconVariant} from 'app/component-library/components/ButtonIcon';
-import { IconName } from 'app/component-library/components/Icon';
-
 <ButtonIcon
-  iconName={IconName.BankFilled}
+  iconName={IconName.Bank}
   onPress={ONPRESS_HANDLER}
-  variant={ButtonIconVariant.}
+  variant={ButtonIconVariants.Primary}
 />;
 ```

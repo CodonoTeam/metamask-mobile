@@ -1,4 +1,6 @@
-# Toast
+# [Toast](https://metamask-consensys.notion.site/Toast-0c8412d624174c47a20fb654f3001c26)
+
+![Toast](./Toast.png)
 
 Toast is a component that slides up from the bottom. It is typically used to show post confirmation information.
 
@@ -55,7 +57,7 @@ const SampleRootComponent = () => {
 // Replace import with relative path.
 import {
   ToastContext,
-  ToastVariant,
+  ToastVariants,
 } from 'app/component-library/components/Toast';
 
 const { toastRef } = useContext(ToastContext);
@@ -63,12 +65,13 @@ const { toastRef } = useContext(ToastContext);
 const showToast = () => {
   // Example of showing toast with Account variant.
   toastRef.current?.showToast({
-    variant: ToastVariant.Account,
+    variant: ToastVariants.Account,
     labelOptions: [
       { label: LABEL_CHUNK_1 },
       { label: LABEL_CHUNK_2, isBold: true },
     ],
     accountAddress: ACCOUNT_ADDRESS,
+    accountAvatarType: ACCOUNT_AVATAR_TYPE,
     linkButtonOptions: {
       label: LINK_LABEL,
       onPress: ONPRESS_HANDLER,

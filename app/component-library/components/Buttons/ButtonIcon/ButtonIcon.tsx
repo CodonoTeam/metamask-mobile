@@ -5,43 +5,50 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { GestureResponderEvent, TouchableOpacity } from 'react-native';
 
 // External dependencies.
-import Icon, { IconSize } from '../../Icon';
-import { useStyles } from '../../../../component-library/hooks';
+import Icon from '../../Icons/Icon';
+import { useStyles } from '../../../hooks';
 
 // Internal dependencies.
-import { ButtonIconProps, ButtonIconVariant } from './ButtonIcon.types';
+import { ButtonIconProps, ButtonIconVariants } from './ButtonIcon.types';
 import stylesheet from './ButtonIcon.styles';
+import {
+  DEFAULT_BUTTONICON_SIZE,
+  DEFAULT_BUTTONICON_VARIANTS,
+  ICONSIZE_BY_BUTTONICONSIZE,
+} from './ButtonIcon.constants';
 
 const ButtonIcon = ({
   iconName,
-  variant = ButtonIconVariant.Primary,
-  disabled,
+  variant = DEFAULT_BUTTONICON_VARIANTS,
   onPressIn,
   onPressOut,
   style,
+  size = DEFAULT_BUTTONICON_SIZE,
+  iconColorOverride = undefined,
+  isDisabled = false,
   ...props
 }: ButtonIconProps) => {
+  const [pressed, setPressed] = useState(false);
   const {
     styles,
     theme: { colors },
-  } = useStyles(stylesheet, { style });
-  const [pressed, setPressed] = useState(false);
+  } = useStyles(stylesheet, { style, size, pressed, isDisabled });
   const iconColor = useMemo(() => {
     let color: string;
-    if (disabled) {
+    if (isDisabled) {
       color = colors.icon.muted;
     } else {
       switch (variant) {
-        case ButtonIconVariant.Primary:
-          color = pressed ? colors.primary.alternative : colors.primary.default;
+        case ButtonIconVariants.Primary:
+          color = colors.primary.default;
           break;
-        case ButtonIconVariant.Secondary:
-          color = pressed ? colors.icon.alternative : colors.icon.default;
+        case ButtonIconVariants.Secondary:
+          color = colors.icon.default;
           break;
       }
     }
     return color;
-  }, [colors, variant, disabled, pressed]);
+  }, [colors, variant, isDisabled]);
 
   const triggerOnPressedIn = useCallback(
     (e: GestureResponderEvent) => {
@@ -65,9 +72,15 @@ const ButtonIcon = ({
       onPressIn={triggerOnPressedIn}
       onPressOut={triggerOnPressedOut}
       activeOpacity={1}
+      accessible
+      disabled={isDisabled}
       {...props}
     >
-      <Icon name={iconName} size={IconSize.Lg} color={iconColor} />
+      <Icon
+        name={iconName}
+        size={ICONSIZE_BY_BUTTONICONSIZE[size]}
+        color={iconColorOverride || iconColor}
+      />
     </TouchableOpacity>
   );
 };

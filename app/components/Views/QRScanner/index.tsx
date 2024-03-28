@@ -2,93 +2,69 @@
 /* eslint @typescript-eslint/no-require-imports: "off" */
 
 'use strict';
-import React, { useRef, useCallback } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { parse } from 'eth-url-parser';
+import { isValidAddress } from 'ethereumjs-util';
+import React, { useCallback, useRef } from 'react';
 import {
+  Alert,
+  Image,
   InteractionManager,
   SafeAreaView,
-  Image,
   Text,
   TouchableOpacity,
   View,
-  StyleSheet,
-  Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
 import { RNCamera } from 'react-native-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { parse } from 'eth-url-parser';
-import { colors as importedColors } from '../../../styles/common';
-import { isValidAddress } from 'ethereumjs-util';
+import { useSelector } from 'react-redux';
 import { strings } from '../../../../locales/i18n';
-import SharedDeeplinkManager from '../../../core/DeeplinkManager';
+import { PROTOCOLS } from '../../../constants/deeplinks';
+import Routes from '../../../constants/navigation/Routes';
+import { MM_SDK_DEEPLINK } from '../../../constants/urls';
 import AppConstants from '../../../core/AppConstants';
+import SharedDeeplinkManager from '../../../core/DeeplinkManager/SharedDeeplinkManager';
+import Engine from '../../../core/Engine';
+import { selectChainId } from '../../../selectors/networkController';
+import { isValidAddressInputViaQRCode } from '../../../util/address';
+import { getURLProtocol } from '../../../util/general';
+import {
+  createNavigationDetails,
+  useParams,
+} from '../../../util/navigation/navUtils';
 import {
   failedSeedPhraseRequirements,
   isValidMnemonic,
 } from '../../../util/validators';
-import Engine from '../../../core/Engine';
-
-// TODO: This file needs typings
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: importedColors.black,
-  },
-  preview: {
-    flex: 1,
-  },
-  innerView: {
-    flex: 1,
-  },
-  closeIcon: {
-    marginTop: 20,
-    marginRight: 20,
-    width: 40,
-    alignSelf: 'flex-end',
-  },
-  frame: {
-    width: 250,
-    height: 250,
-    alignSelf: 'center',
-    justifyContent: 'center',
-    marginTop: 100,
-    opacity: 0.5,
-  },
-  text: {
-    flex: 1,
-    fontSize: 17,
-    color: importedColors.white,
-    textAlign: 'center',
-    justifyContent: 'center',
-    marginTop: 100,
-  },
-});
+import createStyles from './styles';
+import { useTheme } from '../../../util/theme';
 
 const frameImage = require('../../../images/frame.png'); // eslint-disable-line import/no-commonjs
 
-interface Props {
-  /**
-   * Object that represents the navigator
-   */
-  navigation: any;
-  /**
-   * Object that represents the current route info like params passed to it
-   */
-  route: any;
+export interface QRScannerParams {
+  onScanSuccess: (data: any, content?: string) => void;
+  onScanError?: (error: string) => void;
+  onStartScan?: (data: any) => Promise<void>;
+  origin?: string;
 }
+
+export const createQRScannerNavDetails =
+  createNavigationDetails<QRScannerParams>(Routes.QR_SCANNER);
 
 /**
  * View that wraps the QR code scanner screen
  */
-const QRScanner = ({ navigation, route }: Props) => {
-  const { onScanError, onScanSuccess, onStartScan } = route.params;
-  const mountedRef = useRef(true);
-  const shouldReadBarCodeRef = useRef(true);
+const QRScanner = () => {
+  const navigation = useNavigation();
+  const { onScanError, onScanSuccess, onStartScan, origin } =
+    useParams<QRScannerParams>();
 
-  const currentChainId = useSelector(
-    (state: any) =>
-      state.engine.backgroundState.NetworkController.provider.chainId,
-  );
+  const mountedRef = useRef<boolean>(true);
+  const shouldReadBarCodeRef = useRef<boolean>(true);
+
+  const currentChainId = useSelector(selectChainId);
+  const theme = useTheme();
+  const styles = createStyles(theme);
 
   const goBack = useCallback(() => {
     navigation.goBack();
@@ -100,8 +76,44 @@ const QRScanner = ({ navigation, route }: Props) => {
     navigation.goBack();
   }, [mountedRef, navigation]);
 
+  const showAlertForInvalidAddress = () => {
+    Alert.alert(
+      strings('qr_scanner.unrecognized_address_qr_code_title'),
+      strings('qr_scanner.unrecognized_address_qr_code_desc'),
+      [
+        {
+          text: strings('qr_scanner.ok'),
+          onPress: () => null,
+          style: 'default',
+        },
+      ],
+    );
+  };
+
+  const showAlertForURLRedirection = useCallback(
+    (url: string): Promise<boolean> =>
+      new Promise((resolve) => {
+        mountedRef.current = false;
+        navigation.navigate(Routes.MODAL.ROOT_MODAL_FLOW, {
+          screen: Routes.MODAL.MODAL_CONFIRMATION,
+          params: {
+            onConfirm: () => resolve(true),
+            onCancel: () => resolve(false),
+            cancelLabel: strings('qr_scanner.cancel'),
+            confirmLabel: strings('qr_scanner.continue'),
+            isDanger: false,
+            title: strings('qr_scanner.url_redirection_alert_title'),
+            description: `${url}\n${strings(
+              'qr_scanner.url_redirection_alert_desc',
+            )}`,
+          },
+        });
+      }),
+    [navigation],
+  );
+
   const onBarCodeRead = useCallback(
-    (response) => {
+    async (response) => {
       const content = response.data;
       /**
        * Barcode read triggers multiple times
@@ -110,6 +122,31 @@ const QRScanner = ({ navigation, route }: Props) => {
        */
       if (!shouldReadBarCodeRef.current || !mountedRef.current || !content) {
         return;
+      }
+
+      if (
+        origin === Routes.SEND_FLOW.SEND_TO ||
+        origin === Routes.SETTINGS.CONTACT_FORM
+      ) {
+        if (!isValidAddressInputViaQRCode(content)) {
+          showAlertForInvalidAddress();
+          end();
+          return;
+        }
+      }
+
+      const contentProtocol = getURLProtocol(content);
+      if (
+        (contentProtocol === PROTOCOLS.HTTP ||
+          contentProtocol === PROTOCOLS.HTTPS) &&
+        !content.startsWith(MM_SDK_DEEPLINK)
+      ) {
+        const redirect = await showAlertForURLRedirection(content);
+
+        if (!redirect) {
+          navigation.goBack();
+          return;
+        }
       }
 
       let data = {};
@@ -140,7 +177,6 @@ const QRScanner = ({ navigation, route }: Props) => {
           onScanSuccess(data, content);
           return;
         }
-
         const { KeyringController } = Engine.context as any;
         const isUnlocked = KeyringController.isUnlocked();
 
@@ -155,12 +191,12 @@ const QRScanner = ({ navigation, route }: Props) => {
         }
         // Let ethereum:address and address go forward
         if (
-          (content.split('ethereum:').length > 1 &&
+          (content.split(`${PROTOCOLS.ETHEREUM}:`).length > 1 &&
             !parse(content).function_name) ||
           (content.startsWith('0x') && isValidAddress(content))
         ) {
           const handledContent = content.startsWith('0x')
-            ? `ethereum:${content}@${currentChainId}`
+            ? `${PROTOCOLS.ETHEREUM}:${content}@${currentChainId}`
             : content;
           shouldReadBarCodeRef.current = false;
           data = parse(handledContent);
@@ -174,7 +210,8 @@ const QRScanner = ({ navigation, route }: Props) => {
         // Checking if it can be handled like deeplinks
         const handledByDeeplink = SharedDeeplinkManager.parse(content, {
           origin: AppConstants.DEEPLINKS.ORIGIN_QR_CODE,
-          onHandled: () => navigation.pop(2),
+          // TODO: Check is pop is still valid.
+          onHandled: () => (navigation as any).pop(2),
         });
 
         if (handledByDeeplink) {
@@ -207,7 +244,15 @@ const QRScanner = ({ navigation, route }: Props) => {
 
       end();
     },
-    [end, onStartScan, onScanSuccess, navigation, currentChainId],
+    [
+      origin,
+      end,
+      showAlertForURLRedirection,
+      navigation,
+      onStartScan,
+      onScanSuccess,
+      currentChainId,
+    ],
   );
 
   const showCameraNotAuthorizedAlert = () =>
@@ -262,7 +307,7 @@ const QRScanner = ({ navigation, route }: Props) => {
       >
         <SafeAreaView style={styles.innerView}>
           <TouchableOpacity style={styles.closeIcon} onPress={goBack}>
-            <Icon name={'ios-close'} size={50} color={importedColors.white} />
+            <Icon name={'ios-close'} size={50} color={styles.closeIcon.color} />
           </TouchableOpacity>
           <Image source={frameImage} style={styles.frame} />
           <Text style={styles.text}>{strings('qr_scanner.scanning')}</Text>

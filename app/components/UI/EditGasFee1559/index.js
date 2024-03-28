@@ -18,20 +18,23 @@ import { strings } from '../../../../locales/i18n';
 import Alert, { AlertType } from '../../Base/Alert';
 import HorizontalSelector from '../../Base/HorizontalSelector';
 import Device from '../../../util/device';
-import { isMainnetByChainId } from '../../../util/networks';
+import { getDecimalChainId, isMainnetByChainId } from '../../../util/networks';
 import PropTypes from 'prop-types';
 import BigNumber from 'bignumber.js';
 import FadeAnimationView from '../FadeAnimationView';
-import AnalyticsV2 from '../../../util/analyticsV2';
+import { MetaMetricsEvents } from '../../../core/Analytics';
+
 import TimeEstimateInfoModal from '../TimeEstimateInfoModal';
 import useModalHandler from '../../Base/hooks/useModalHandler';
 import AppConstants from '../../../core/AppConstants';
 import { useTheme } from '../../../util/theme';
-
-const GAS_LIMIT_INCREMENT = new BigNumber(1000);
-const GAS_INCREMENT = new BigNumber(1);
-const GAS_LIMIT_MIN = new BigNumber(21000);
-const GAS_MIN = new BigNumber(0);
+import {
+  GAS_LIMIT_INCREMENT,
+  GAS_PRICE_INCREMENT as GAS_INCREMENT,
+  GAS_LIMIT_MIN,
+  GAS_PRICE_MIN as GAS_MIN,
+} from '../../../util/gasUtils';
+import { useMetrics } from '../../../components/hooks/useMetrics';
 
 const createStyles = (colors) =>
   StyleSheet.create({
@@ -142,6 +145,10 @@ const createStyles = (colors) =>
     },
   });
 
+/**
+ * The EditGasFee1559 component will be deprecated in favor of EditGasFee1559Update as part of the gas polling refactor code that moves gas fee modifications to `app/core/GasPolling`. When the refactoring is completed, the EditGasFee1559Update will be renamed EditGasFee1559 and this component will be removed. The EditGasFee1559Update is currently being used in the Update Transaction(Speed Up/Cancel) flow.
+ */
+
 const EditGasFee1559 = ({
   selected,
   gasFee,
@@ -192,13 +199,15 @@ const EditGasFee1559 = ({
     hideTimeEstimateInfoModal,
   ] = useModalHandler(false);
   const { colors } = useTheme();
+  const { trackEvent } = useMetrics();
+
   const styles = createStyles(colors);
 
   const getAnalyticsParams = useCallback(() => {
     try {
       return {
         ...analyticsParams,
-        chain_id: chainId,
+        chain_id: getDecimalChainId(chainId),
         function_type: view,
         gas_mode: selectedOption ? 'Basic' : 'Advanced',
         speed_set: selectedOption || undefined,
@@ -210,26 +219,23 @@ const EditGasFee1559 = ({
 
   const toggleAdvancedOptions = useCallback(() => {
     if (!showAdvancedOptions) {
-      AnalyticsV2.trackEvent(
-        AnalyticsV2.ANALYTICS_EVENTS.GAS_ADVANCED_OPTIONS_CLICKED,
+      trackEvent(
+        MetaMetricsEvents.GAS_ADVANCED_OPTIONS_CLICKED,
         getAnalyticsParams(),
       );
     }
     setShowAdvancedOptions((showAdvancedOptions) => !showAdvancedOptions);
-  }, [getAnalyticsParams, showAdvancedOptions]);
+  }, [getAnalyticsParams, showAdvancedOptions, trackEvent]);
 
   const toggleLearnMoreModal = useCallback(() => {
     setShowLearnMoreModal((showLearnMoreModal) => !showLearnMoreModal);
   }, []);
 
   const save = useCallback(() => {
-    AnalyticsV2.trackEvent(
-      AnalyticsV2.ANALYTICS_EVENTS.GAS_FEE_CHANGED,
-      getAnalyticsParams(),
-    );
+    trackEvent(MetaMetricsEvents.GAS_FEE_CHANGED, getAnalyticsParams());
 
     onSave(selectedOption);
-  }, [getAnalyticsParams, onSave, selectedOption]);
+  }, [getAnalyticsParams, onSave, selectedOption, trackEvent]);
 
   const changeGas = useCallback(
     (gas, selectedOption) => {
@@ -707,7 +713,10 @@ const EditGasFee1559 = ({
               </Text>
               <View style={styles.labelTextContainer}>
                 <Text
-                  green={timeEstimateColor === 'green'}
+                  green={
+                    timeEstimateColor === 'green' ||
+                    timeEstimateId === AppConstants.GAS_TIMES.VERY_LIKELY
+                  }
                   red={timeEstimateColor === 'red'}
                   bold
                 >

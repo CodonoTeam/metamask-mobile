@@ -2,23 +2,34 @@
 
 exports[`ButtonIcon should render correctly 1`] = `
 <TouchableOpacity
+  accessible={true}
   activeOpacity={1}
+  disabled={false}
   onPress={[Function]}
   onPressIn={[Function]}
   onPressOut={[Function]}
   style={
     Object {
       "alignItems": "center",
-      "height": 32,
+      "borderRadius": 8,
+      "height": 24,
       "justifyContent": "center",
-      "width": 32,
+      "opacity": 1,
+      "width": 24,
     }
   }
 >
-  <Icon
-    color="#037DD6"
-    name="AddSquareFilled"
-    size="24"
+  <SvgMock
+    color="#0376C9"
+    height={16}
+    name="AddSquare"
+    style={
+      Object {
+        "height": 16,
+        "width": 16,
+      }
+    }
+    width={16}
   />
 </TouchableOpacity>
 `;

@@ -5,7 +5,7 @@ import React from 'react';
 import { View } from 'react-native';
 
 // External dependencies.
-import Text, { TextVariant } from '../../Text';
+import Text, { TextVariant } from '../../Texts/Text';
 import { useStyles } from '../../../hooks';
 
 // Internal dependencies.
@@ -17,9 +17,7 @@ const Tag = ({ label, style, ...props }: TagProps) => {
 
   return (
     <View style={styles.base} {...props}>
-      <Text style={styles.label} variant={TextVariant.sBodyMD}>
-        {label}
-      </Text>
+      <Text variant={TextVariant.BodyMD}>{label}</Text>
     </View>
   );
 };

@@ -5,10 +5,9 @@ import React from 'react';
 import { View } from 'react-native';
 
 // External dependencies.
-import { AvatarBaseSize } from '../../Avatars/AvatarBase';
-import AvatarFavicon from '../../Avatars/AvatarFavicon';
-import ButtonLink from '../../Buttons/ButtonLink';
-import Text, { TextVariant } from '../../Text';
+import Avatar, { AvatarSize, AvatarVariant } from '../../Avatars/Avatar';
+import Button, { ButtonVariants } from '../../Buttons/Button';
+import Text, { TextVariant } from '../../Texts/Text';
 import { useStyles } from '../../../hooks';
 
 // Internal dependencies.
@@ -19,14 +18,22 @@ const TagUrl = ({ imageSource, label, cta, style, ...props }: TagUrlProps) => {
   const { styles } = useStyles(styleSheet, { style });
   return (
     <View style={styles.base} {...props}>
-      <AvatarFavicon imageSource={imageSource} size={AvatarBaseSize.Md} />
-      <Text style={styles.label} variant={TextVariant.sBodyMD}>
+      <Avatar
+        variant={AvatarVariant.Favicon}
+        imageSource={imageSource}
+        size={AvatarSize.Md}
+        style={styles.favicon}
+      />
+      <Text style={styles.label} variant={TextVariant.BodyMD}>
         {label}
       </Text>
       {cta && (
-        <ButtonLink style={styles.cta} onPress={cta.onPress}>
-          {cta.label}
-        </ButtonLink>
+        <Button
+          variant={ButtonVariants.Link}
+          style={styles.cta}
+          onPress={cta.onPress}
+          label={cta.label}
+        />
       )}
     </View>
   );

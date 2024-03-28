@@ -2,9 +2,27 @@
 import { TouchableOpacityProps } from 'react-native';
 
 // External dependencies.
-import { IconProps } from '../../Icon/Icon.types';
+import { IconProps, IconSize } from '../../Icons/Icon';
 
-export enum ButtonIconVariant {
+/**
+ * Size variants of ButtonIcon.
+ */
+export enum ButtonIconSizes {
+  Sm = '24',
+  Lg = '32',
+}
+
+/**
+ * Mapping of IconSize by ButtonIconSize.
+ */
+export type IconSizeByButtonIconSize = {
+  [key in ButtonIconSizes]: IconSize;
+};
+
+/**
+ * Variants of ButtonIcon.
+ */
+export enum ButtonIconVariants {
   Primary = 'Primary',
   Secondary = 'Secondary',
 }
@@ -25,10 +43,28 @@ export interface ButtonIconProps extends TouchableOpacityProps {
    * Optional enum to select between variants.
    * @default Primary
    */
-  variant?: ButtonIconVariant;
+  variant?: ButtonIconVariants;
+  /**
+   * Size of the buttonIcon.
+   */
+  size?: ButtonIconSizes;
+  /**
+   * Icon color to override
+   */
+  iconColorOverride?: string;
+  /**
+   * Optional param to disable the button.
+   */
+  isDisabled?: boolean;
 }
 
 /**
  * Style sheet input parameters.
  */
-export type ButtonIconStyleSheetVars = Pick<ButtonIconProps, 'style'>;
+export type ButtonIconStyleSheetVars = Pick<
+  ButtonIconProps,
+  'style' | 'size'
+> & {
+  pressed: boolean;
+  isDisabled: boolean;
+};

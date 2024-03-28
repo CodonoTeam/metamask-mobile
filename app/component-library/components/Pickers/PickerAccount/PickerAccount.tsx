@@ -1,53 +1,83 @@
 /* eslint-disable react/prop-types */
 
 // Third party dependencies.
-import React from 'react';
-import { View } from 'react-native';
+import React, { forwardRef } from 'react';
+import { Platform, TouchableOpacity, View } from 'react-native';
 
 // External dependencies.
-import AvatarAccount from '../../Avatars/AvatarAccount';
-import Text, { TextVariant } from '../../Text';
-import { AvatarBaseSize } from '../../Avatars/AvatarBase';
+import Avatar, { AvatarSize, AvatarVariant } from '../../Avatars/Avatar';
+import Text, { TextVariant } from '../../Texts/Text';
 import { formatAddress } from '../../../../util/address';
 import { useStyles } from '../../../hooks';
+import { strings } from '../../../../../locales/i18n';
 
 // Internal dependencies.
 import PickerBase from '../PickerBase';
 import { PickerAccountProps } from './PickerAccount.types';
 import styleSheet from './PickerAccount.styles';
+import generateTestId from '../../../../../wdio/utils/generateTestId';
+import { WALLET_ACCOUNT_NAME_LABEL_TEXT } from '../../../../../wdio/screen-objects/testIDs/Screens/WalletView.testIds';
 
-const PickerAccount = ({
-  style,
-  accountAddress,
-  accountName,
-  accountAvatarType,
-  ...props
-}: PickerAccountProps) => {
-  const { styles } = useStyles(styleSheet, { style });
+const PickerAccount: React.ForwardRefRenderFunction<
+  TouchableOpacity,
+  PickerAccountProps
+> = (
+  {
+    style,
+    accountAddress,
+    accountName,
+    accountAvatarType,
+    accountTypeLabel,
+    showAddress = true,
+    cellAccountContainerStyle = {},
+    ...props
+  },
+  ref,
+) => {
+  const { styles } = useStyles(styleSheet, {
+    style,
+    cellAccountContainerStyle,
+  });
   const shortenedAddress = formatAddress(accountAddress, 'short');
 
   const renderCellAccount = () => (
     <View style={styles.cellAccount}>
-      <AvatarAccount
+      <Avatar
+        variant={AvatarVariant.Account}
         type={accountAvatarType}
         accountAddress={accountAddress}
-        size={AvatarBaseSize.Md}
+        size={AvatarSize.Md}
         style={styles.accountAvatar}
       />
-      <View>
-        <Text variant={TextVariant.sHeadingSMRegular}>{accountName}</Text>
-        <Text variant={TextVariant.sBodyMD} style={styles.accountAddressLabel}>
-          {shortenedAddress}
+      <View style={styles.accountNameLabel}>
+        <Text
+          variant={TextVariant.HeadingSMRegular}
+          {...generateTestId(Platform, WALLET_ACCOUNT_NAME_LABEL_TEXT)}
+        >
+          {accountName}
         </Text>
+        {accountTypeLabel && (
+          <Text
+            variant={TextVariant.BodySM}
+            style={styles.accountNameLabelText}
+          >
+            {strings(accountTypeLabel)}
+          </Text>
+        )}
+        {showAddress && (
+          <Text variant={TextVariant.BodyMD} style={styles.accountAddressLabel}>
+            {shortenedAddress}
+          </Text>
+        )}
       </View>
     </View>
   );
 
   return (
-    <PickerBase style={styles.base} {...props}>
+    <PickerBase style={styles.base} {...props} ref={ref}>
       {renderCellAccount()}
     </PickerBase>
   );
 };
 
-export default PickerAccount;
+export default forwardRef(PickerAccount);

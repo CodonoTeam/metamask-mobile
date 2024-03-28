@@ -11,6 +11,10 @@ import AppConstants from '../../../core/AppConstants';
 import { renderShortAddress } from '../../../util/address';
 import { WALLET_CONNECT_ORIGIN } from '../../../util/walletconnect';
 import { useTheme } from '../../../util/theme';
+import {
+  selectNickname,
+  selectProviderType,
+} from '../../../selectors/networkController';
 
 const { ORIGIN_DEEPLINK, ORIGIN_QR_CODE } = AppConstants.DEEPLINKS;
 
@@ -87,9 +91,15 @@ const TransactionHeader = (props) => {
   const originIsDeeplink =
     props.currentPageInformation.origin === ORIGIN_DEEPLINK ||
     props.currentPageInformation.origin === ORIGIN_QR_CODE;
-  const originIsWalletConnect = props.currentPageInformation.origin?.includes(
+  const originIsWalletConnect = props.currentPageInformation.origin?.startsWith(
     WALLET_CONNECT_ORIGIN,
   );
+
+  const originIsMMSDKRemoteConn =
+    props.currentPageInformation.origin?.startsWith(
+      AppConstants.MM_SDK.SDK_REMOTE_ORIGIN,
+    );
+
   /**
    * Returns a small circular indicator, red if the current selected network is offline, green if it's online.
    *
@@ -121,7 +131,11 @@ const TransactionHeader = (props) => {
     const { url, origin } = props.currentPageInformation;
     const name =
       getUrlObj(
-        originIsWalletConnect ? origin.split(WALLET_CONNECT_ORIGIN)[1] : url,
+        originIsWalletConnect
+          ? origin.split(WALLET_CONNECT_ORIGIN)[1]
+          : originIsMMSDKRemoteConn
+          ? origin.split(AppConstants.MM_SDK.SDK_REMOTE_ORIGIN)[1]
+          : url,
       ).protocol === 'https:'
         ? 'lock'
         : 'warning';
@@ -131,7 +145,7 @@ const TransactionHeader = (props) => {
   const renderTopIcon = () => {
     const { currentEnsName, icon, origin } = props.currentPageInformation;
     let url = props.currentPageInformation.url;
-    if (originIsDeeplink) {
+    if (originIsDeeplink && !icon) {
       return (
         <View style={styles.deeplinkIconContainer}>
           <FontAwesome
@@ -147,6 +161,8 @@ const TransactionHeader = (props) => {
     if (originIsWalletConnect) {
       url = origin.split(WALLET_CONNECT_ORIGIN)[1];
       iconTitle = getHost(url);
+    } else if (originIsMMSDKRemoteConn) {
+      url = origin.split(AppConstants.MM_SDK.SDK_REMOTE_ORIGIN)[1];
     }
     return (
       <WebsiteIcon
@@ -154,7 +170,7 @@ const TransactionHeader = (props) => {
         viewStyle={styles.assetLogo}
         title={iconTitle}
         url={currentEnsName || url}
-        icon={icon}
+        icon={typeof icon === 'string' ? icon : icon?.uri}
       />
     );
   };
@@ -163,10 +179,15 @@ const TransactionHeader = (props) => {
     const { url, currentEnsName, spenderAddress, origin } =
       props.currentPageInformation;
     let title = '';
+
     if (originIsDeeplink) title = renderShortAddress(spenderAddress);
     else if (originIsWalletConnect)
       title = getHost(origin.split(WALLET_CONNECT_ORIGIN)[1]);
-    else title = getHost(currentEnsName || url || origin);
+    else if (originIsMMSDKRemoteConn) {
+      title = getHost(origin.split(AppConstants.MM_SDK.SDK_REMOTE_ORIGIN)[1]);
+    }
+
+    if (!title) title = getHost(currentEnsName || url || origin);
 
     return <Text style={styles.domainUrl}>{title}</Text>;
   };
@@ -204,8 +225,8 @@ TransactionHeader.propTypes = {
 };
 
 const mapStateToProps = (state) => ({
-  networkType: state.engine.backgroundState.NetworkController.provider.type,
-  nickname: state.engine.backgroundState.NetworkController.provider.nickname,
+  networkType: selectProviderType(state),
+  nickname: selectNickname(state),
 });
 
 export default connect(mapStateToProps)(TransactionHeader);

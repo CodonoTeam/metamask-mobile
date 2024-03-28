@@ -1,59 +1,45 @@
-import React, { useCallback, useEffect } from 'react';
-import { StyleSheet, Text, ScrollView, View } from 'react-native';
-import StyledButton from '../../../UI/StyledButton';
-import { fontStyles } from '../../../../styles/common';
-import { getNavigationOptionsTitle } from '../../../UI/Navbar';
+import React, { FC, useCallback, useEffect, useState } from 'react';
+import { Linking, ScrollView, Switch, View } from 'react-native';
+
+import { MMKV } from 'react-native-mmkv';
 import { strings } from '../../../../../locales/i18n';
+import { colors as importedColors } from '../../../../styles/common';
 import { useTheme } from '../../../../util/theme';
+import Text, {
+  TextVariant,
+  TextColor,
+} from '../../../../component-library/components/Texts/Text';
+import { getNavigationOptionsTitle } from '../../../UI/Navbar';
+import { Props } from './ExperimentalSettings.types';
+import createStyles from './ExperimentalSettings.styles';
+import Button, {
+  ButtonVariants,
+  ButtonSize,
+  ButtonWidthTypes,
+} from '../../../../component-library/components/Buttons/Button';
+import Device from '../../../../../app/util/device';
+import { SES_URL } from '../../../../../app/constants/urls';
+import Routes from '../../../../../app/constants/navigation/Routes';
 
-const createStyles = (colors: any) =>
-  StyleSheet.create({
-    wrapper: {
-      backgroundColor: colors.background.default,
-      flex: 1,
-      padding: 24,
-      paddingBottom: 48,
-    },
-    title: {
-      ...(fontStyles.normal as any),
-      color: colors.text.default,
-      fontSize: 20,
-      lineHeight: 20,
-      paddingTop: 4,
-      marginTop: -4,
-    },
-    desc: {
-      ...(fontStyles.normal as any),
-      color: colors.text.alternative,
-      fontSize: 14,
-      lineHeight: 20,
-      marginTop: 12,
-    },
-    setting: {
-      marginVertical: 18,
-    },
-    clearHistoryConfirm: {
-      marginTop: 18,
-    },
-  });
-
-interface Props {
-  /**
-	/* navigation object required to push new views
-	*/
-  navigation: any;
-  /**
-   * contains params that are passed in from navigation
-   */
-  route: any;
-}
+const storage = new MMKV(); // id: mmkv.default
 
 /**
  * Main view for app Experimental Settings
  */
 const ExperimentalSettings = ({ navigation, route }: Props) => {
+  const [sesEnabled, setSesEnabled] = useState(
+    storage.getBoolean('is-ses-enabled'),
+  );
+
+  const toggleSesEnabled = () => {
+    storage.set('is-ses-enabled', !sesEnabled);
+    setSesEnabled(!sesEnabled);
+  };
+
   const isFullScreenModal = route?.params?.isFullScreenModal;
-  const { colors } = useTheme();
+
+  const theme = useTheme();
+  const { colors } = theme;
   const styles = createStyles(colors);
 
   useEffect(
@@ -64,6 +50,7 @@ const ExperimentalSettings = ({ navigation, route }: Props) => {
           navigation,
           isFullScreenModal,
           colors,
+          null,
         ),
       );
     },
@@ -72,28 +59,82 @@ const ExperimentalSettings = ({ navigation, route }: Props) => {
   );
 
   const goToWalletConnectSessions = useCallback(() => {
-    navigation.navigate('WalletConnectSessionsView');
+    navigation.navigate(Routes.WALLET.WALLET_CONNECT_SESSIONS_VIEW);
   }, [navigation]);
+
+  const openSesLink = () => Linking.openURL(SES_URL);
+
+  const WalletConnectSettings: FC = () => (
+    <>
+      <Text color={TextColor.Default} variant={TextVariant.BodyLGMedium}>
+        {strings('experimental_settings.wallet_connect_dapps')}
+      </Text>
+      <Text
+        color={TextColor.Alternative}
+        variant={TextVariant.BodyMD}
+        style={styles.desc}
+      >
+        {strings('experimental_settings.wallet_connect_dapps_desc')}
+      </Text>
+      <Button
+        variant={ButtonVariants.Secondary}
+        size={ButtonSize.Lg}
+        label={strings('experimental_settings.wallet_connect_dapps_cta')}
+        onPress={goToWalletConnectSessions}
+        width={ButtonWidthTypes.Full}
+        style={styles.accessory}
+      />
+    </>
+  );
+
+  const SesSettings: FC = () => (
+    <>
+      <Text
+        color={TextColor.Default}
+        variant={TextVariant.HeadingLG}
+        style={styles.heading}
+      >
+        {strings('app_settings.security_heading')}
+      </Text>
+      <View style={styles.setting}>
+        <View style={styles.switchElement}>
+          <Text color={TextColor.Default} variant={TextVariant.BodyLGMedium}>
+            {strings('app_settings.ses_heading')}
+          </Text>
+          <Switch
+            value={sesEnabled}
+            onValueChange={toggleSesEnabled}
+            trackColor={{
+              true: colors.primary.default,
+              false: colors.border.muted,
+            }}
+            thumbColor={importedColors.white}
+            style={styles.switch}
+            ios_backgroundColor={colors.border.muted}
+          />
+        </View>
+        <Text
+          color={TextColor.Alternative}
+          variant={TextVariant.BodyMD}
+          style={styles.desc}
+        >
+          {strings('app_settings.ses_description')}{' '}
+          <Button
+            variant={ButtonVariants.Link}
+            size={ButtonSize.Auto}
+            onPress={openSesLink}
+            label={strings('app_settings.ses_link')}
+          />
+          .
+        </Text>
+      </View>
+    </>
+  );
 
   return (
     <ScrollView style={styles.wrapper}>
-      <View style={styles.setting}>
-        <View>
-          <Text style={styles.title}>
-            {strings('experimental_settings.wallet_connect_dapps')}
-          </Text>
-          <Text style={styles.desc}>
-            {strings('experimental_settings.wallet_connect_dapps_desc')}
-          </Text>
-          <StyledButton
-            type="normal"
-            onPress={goToWalletConnectSessions}
-            containerStyle={styles.clearHistoryConfirm}
-          >
-            {strings('experimental_settings.wallet_connect_dapps_cta')}
-          </StyledButton>
-        </View>
-      </View>
+      <WalletConnectSettings />
+      {Device.isIos() && <SesSettings />}
     </ScrollView>
   );
 };

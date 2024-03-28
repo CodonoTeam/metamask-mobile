@@ -1,22 +1,23 @@
-import React from 'react';
-import { shallow } from 'enzyme';
+import { renderScreen } from '../../../util/test/renderWithProvider';
+import initialBackgroundState from '../../../util/test/initial-background-state.json';
 import App from './';
-import configureMockStore from 'redux-mock-store';
 
-const mockStore = configureMockStore();
+const initialState = {
+  user: {
+    loggedIn: true,
+  },
+  engine: {
+    ...initialBackgroundState,
+  },
+};
 
 describe('App', () => {
   it('should render correctly when logged in', () => {
-    const initialState = {
-      user: {
-        loggedIn: true,
-      },
-    };
-
-    const wrapper = shallow(<App />, {
-      context: { store: mockStore(initialState) },
-    });
-    expect(wrapper).toMatchSnapshot();
-    expect(wrapper).toMatchSnapshot();
+    const { toJSON } = renderScreen(
+      App,
+      { name: 'App' },
+      { state: initialState },
+    );
+    expect(toJSON()).toMatchSnapshot();
   });
 });

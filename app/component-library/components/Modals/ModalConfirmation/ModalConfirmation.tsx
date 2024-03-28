@@ -6,24 +6,18 @@ import { View } from 'react-native';
 import ReusableModal, {
   ReusableModalRef,
 } from '../../../../components/UI/ReusableModal';
-import { ButtonBaseSize } from '../../Buttons/ButtonBase';
-import ButtonSecondary, {
-  ButtonSecondaryVariant,
-} from '../../Buttons/ButtonSecondary';
-import ButtonPrimary, {
-  ButtonPrimaryVariant,
-} from '../../Buttons/ButtonPrimary';
-import Text, { TextVariant } from '../../Text';
+import Button, { ButtonSize, ButtonVariants } from '../../Buttons/Button';
+import Text, { TextVariant } from '../../Texts/Text';
 import { strings } from '../../../../../locales/i18n';
-import { useStyles } from '../../../../component-library/hooks';
+import { useStyles } from '../../../hooks';
 
 // Internal dependencies.
-import {
-  ModalConfirmationProps,
-  ModalConfirmationVariant,
-} from './ModalConfirmation.types';
+import { ModalConfirmationProps } from './ModalConfirmation.types';
 import stylesheet from './ModalConfirmation.styles';
-import { BUTTON_TEST_ID_BY_VARIANT } from './ModalConfirmation.constants';
+import {
+  MODAL_CONFIRMATION_DANGER_BUTTON_ID,
+  MODAL_CONFIRMATION_NORMAL_BUTTON_ID,
+} from './ModalConfirmation.constants';
 
 const ModalConfirmation = ({ route }: ModalConfirmationProps) => {
   const {
@@ -33,7 +27,7 @@ const ModalConfirmation = ({ route }: ModalConfirmationProps) => {
     confirmLabel,
     title,
     description,
-    variant = ModalConfirmationVariant.Normal,
+    isDanger = false,
   } = route.params;
   const modalRef = useRef<ReusableModalRef>(null);
   const { styles } = useStyles(stylesheet, {});
@@ -44,39 +38,51 @@ const ModalConfirmation = ({ route }: ModalConfirmationProps) => {
     modalRef.current?.dismissModal(onConfirm);
   };
 
+  const handleModalDismiss = (hasPendingAction: boolean) =>
+    !hasPendingAction && onCancel?.();
+
   const renderHeader = () => (
-    <Text style={styles.headerLabel} variant={TextVariant.sHeadingMD}>
+    <Text style={styles.headerLabel} variant={TextVariant.HeadingMD}>
       {title}
     </Text>
   );
 
   const renderDescription = () => (
-    <Text variant={TextVariant.sBodyMD}>{description}</Text>
+    <Text variant={TextVariant.BodyMD}>{description}</Text>
   );
+
+  const buttonTestID = isDanger
+    ? MODAL_CONFIRMATION_DANGER_BUTTON_ID
+    : MODAL_CONFIRMATION_NORMAL_BUTTON_ID;
 
   const renderButtons = () => (
     <View style={styles.buttonsContainer}>
-      <ButtonSecondary
-        variant={ButtonSecondaryVariant.Normal}
+      <Button
+        variant={ButtonVariants.Secondary}
         onPress={triggerCancel}
         label={cancelLabel || strings('confirmation_modal.cancel_cta')}
-        size={ButtonBaseSize.Lg}
+        size={ButtonSize.Lg}
         style={styles.button}
       />
       <View style={styles.buttonDivider} />
-      <ButtonPrimary
-        testID={BUTTON_TEST_ID_BY_VARIANT[variant]}
-        variant={ButtonPrimaryVariant[variant]}
+      <Button
+        variant={ButtonVariants.Primary}
+        testID={buttonTestID}
+        isDanger
         onPress={triggerConfirm}
         label={confirmLabel || strings('confirmation_modal.confirm_cta')}
-        size={ButtonBaseSize.Lg}
+        size={ButtonSize.Lg}
         style={styles.button}
       />
     </View>
   );
 
   return (
-    <ReusableModal ref={modalRef} style={styles.screen}>
+    <ReusableModal
+      ref={modalRef}
+      style={styles.screen}
+      onDismiss={handleModalDismiss}
+    >
       <View style={styles.modal}>
         <View style={styles.bodyContainer}>
           {renderHeader()}

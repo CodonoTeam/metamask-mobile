@@ -6,18 +6,15 @@ import { text, boolean, select } from '@storybook/addon-knobs';
 
 import Alert, { AlertType } from './Alert';
 import Text from './Text';
-import { fontStyles } from ' ../../../styles/common';
 import EvilIcons from 'react-native-vector-icons/EvilIcons';
 
 const styles = {
   alertIcon: {
-    fontSize: 20,
-    ...fontStyles.bold,
     marginRight: 6,
   },
 };
 
-storiesOf('Base / Alert', module)
+storiesOf('Components / Base / Alert', module)
   .addDecorator((getStory) => getStory())
   .add('Default', () => {
     const renderIconKnob = boolean('renderIcon', false);
@@ -31,7 +28,7 @@ storiesOf('Base / Alert', module)
         small={boolean('small', false)}
         renderIcon={
           renderIconKnob
-            ? () => <EvilIcons name="bell" style={styles.alertIcon} />
+            ? () => <EvilIcons name="bell" style={styles.alertIcon} size={20} />
             : () => null
         }
         onPress={action('onPress')}

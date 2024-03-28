@@ -1,23 +1,31 @@
-import TestHelpers from '../../helpers';
+import { OnboardingSelectorIDs } from '../../selectors/Onboarding/Onboarding.selectors';
+import Matchers from '../../utils/Matchers';
+import Gestures from '../../utils/Gestures';
 
-const ONBOARDING_SCREEN_ID = 'onboarding-screen';
-const CREATE_WALLET_BUTTON_ID = 'create-wallet-button';
-const IMPORT_WALLET_BUTTON_ID = 'import-wallet-import-from-seed-button';
-//const importUsingSecretRecoveryPhrase = 'import-wallet-import-from-seed-button';
-export default class OnboardingView {
-  static async tapCreateWallet() {
-    await TestHelpers.tap(CREATE_WALLET_BUTTON_ID);
+class OnboardingView {
+  get container() {
+    return Matchers.getElementByID(OnboardingSelectorIDs.CONTAINER_ID);
   }
 
-  static async tapImportWalletFromSeedPhrase() {
-    await TestHelpers.tap(IMPORT_WALLET_BUTTON_ID);
+  get importSeedButton() {
+    return device.getPlatform() === 'android'
+      ? Matchers.getElementByLabel(OnboardingSelectorIDs.IMPORT_SEED_BUTTON)
+      : Matchers.getElementByID(OnboardingSelectorIDs.IMPORT_SEED_BUTTON);
   }
 
-  static async isVisible() {
-    await TestHelpers.checkIfVisible(ONBOARDING_SCREEN_ID);
+  get newWalletButton() {
+    return device.getPlatform() === 'android'
+      ? Matchers.getElementByLabel(OnboardingSelectorIDs.NEW_WALLET_BUTTON)
+      : Matchers.getElementByID(OnboardingSelectorIDs.NEW_WALLET_BUTTON);
   }
 
-  static async isNotVisible() {
-    await TestHelpers.checkIfNotVisible(ONBOARDING_SCREEN_ID);
+  async tapCreateWallet() {
+    await Gestures.waitAndTap(this.newWalletButton);
+  }
+
+  async tapImportWalletFromSeedPhrase() {
+    await Gestures.waitAndTap(this.importSeedButton);
   }
 }
+
+export default new OnboardingView();

@@ -7,13 +7,12 @@ import {
   StyleSheet,
   Keyboard,
   TouchableOpacity,
-  InteractionManager,
 } from 'react-native';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { fontStyles } from '../../../styles/common';
 import Emoji from 'react-native-emoji';
-import AsyncStorage from '@react-native-community/async-storage';
+import AsyncStorage from '../../../store/async-storage-wrapper';
 import OnboardingProgress from '../../UI/OnboardingProgress';
 import ActionView from '../../UI/ActionView';
 import { strings } from '../../../../locales/i18n';
@@ -23,13 +22,16 @@ import Device from '../../../util/device';
 import Confetti from '../../UI/Confetti';
 import HintModal from '../../UI/HintModal';
 import { getTransparentOnboardingNavbarOptions } from '../../UI/Navbar';
+import setOnboardingWizardStep from '../../../actions/wizard';
 import {
   ONBOARDING_WIZARD,
   SEED_PHRASE_HINTS,
 } from '../../../constants/storage';
-import AnalyticsV2 from '../../../util/analyticsV2';
+import { MetaMetricsEvents } from '../../../core/Analytics';
 import DefaultPreference from 'react-native-default-preference';
 import { ThemeContext, mockTheme } from '../../../util/theme';
+import { ManualBackUpStepsSelectorsIDs } from '../../../../e2e/selectors/Onboarding/ManualBackUpSteps.selectors';
+import trackOnboarding from '../../../util/metrics/TrackOnboarding/trackOnboarding';
 
 const createStyles = (colors) =>
   StyleSheet.create({
@@ -109,6 +111,14 @@ class ManualBackupStep3 extends PureComponent {
      * Object that represents the current route info like params passed to it
      */
     route: PropTypes.object,
+    /**
+     * Action to set onboarding wizard step
+     */
+    setOnboardingWizardStep: PropTypes.func,
+  };
+
+  track = (event, properties) => {
+    trackOnboarding(event, properties);
   };
 
   updateNavBar = () => {
@@ -132,11 +142,7 @@ class ManualBackupStep3 extends PureComponent {
     this.setState({
       hintText: manualBackup,
     });
-    InteractionManager.runAfterInteractions(() => {
-      AnalyticsV2.trackEvent(
-        AnalyticsV2.ANALYTICS_EVENTS.WALLET_SECURITY_COMPLETED,
-      );
-    });
+    this.track(MetaMetricsEvents.WALLET_SECURITY_COMPLETED);
     BackHandler.addEventListener(HARDWARE_BACK_PRESS, hardwareBackPress);
   };
 
@@ -182,11 +188,7 @@ class ManualBackupStep3 extends PureComponent {
       SEED_PHRASE_HINTS,
       JSON.stringify({ ...parsedHints, manualBackup: hintText }),
     );
-    InteractionManager.runAfterInteractions(() => {
-      AnalyticsV2.trackEvent(
-        AnalyticsV2.ANALYTICS_EVENTS.WALLET_SECURITY_RECOVERY_HINT_SAVED,
-      );
-    });
+    this.track(MetaMetricsEvents.WALLET_SECURITY_RECOVERY_HINT_SAVED);
   };
 
   done = async () => {
@@ -194,6 +196,7 @@ class ManualBackupStep3 extends PureComponent {
     if (onboardingWizard) {
       this.props.navigation.reset({ routes: [{ name: 'HomeNav' }] });
     } else {
+      this.props.setOnboardingWizardStep(1);
       this.props.navigation.reset({ routes: [{ name: 'HomeNav' }] });
     }
   };
@@ -230,14 +233,14 @@ class ManualBackupStep3 extends PureComponent {
           </View>
         ) : null}
         <ActionView
-          confirmTestID={'manual-backup-step-3-done-button'}
+          confirmTestID={ManualBackUpStepsSelectorsIDs.DONE_BUTTON}
           confirmText={strings('manual_backup_step_3.done')}
           onConfirmPress={this.done}
           showCancelButton={false}
           confirmButtonMode={'confirm'}
           style={styles.actionView}
         >
-          <View style={styles.wrapper} testID={'import-congrats-screen'}>
+          <View style={styles.wrapper}>
             <Emoji name="tada" style={styles.emoji} />
             <Text style={styles.congratulations}>
               {strings('manual_backup_step_3.congratulations')}
@@ -273,6 +276,7 @@ ManualBackupStep3.contextType = ThemeContext;
 
 const mapDispatchToProps = (dispatch) => ({
   showAlert: (config) => dispatch(showAlert(config)),
+  setOnboardingWizardStep: (step) => dispatch(setOnboardingWizardStep(step)),
 });
 
 export default connect(null, mapDispatchToProps)(ManualBackupStep3);

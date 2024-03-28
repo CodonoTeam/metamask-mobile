@@ -7,8 +7,9 @@ import {
   StyleSheet,
   Image,
   Dimensions,
-  InteractionManager,
+  Platform,
 } from 'react-native';
+import { MetaMetricsEvents } from '../../../core/Analytics';
 import StyledButton from '../../UI/StyledButton';
 import { fontStyles, baseStyles } from '../../../styles/common';
 import { strings } from '../../../../locales/i18n';
@@ -19,10 +20,11 @@ import OnboardingScreenWithBg from '../../UI/OnboardingScreenWithBg';
 import Device from '../../../util/device';
 import { saveOnboardingEvent } from '../../../actions/onboarding';
 import { connect } from 'react-redux';
-import AnalyticsV2, { ANALYTICS_EVENTS_V2 } from '../../../util/analyticsV2';
-import DefaultPreference from 'react-native-default-preference';
-import { METRICS_OPT_IN } from '../../../constants/storage';
 import { ThemeContext, mockTheme } from '../../../util/theme';
+import { WELCOME_SCREEN_CAROUSEL_TITLE_ID } from '../../../../wdio/screen-objects/testIDs/Screens/WelcomeScreen.testIds';
+import { OnboardingCarouselSelectorIDs } from '../../../../e2e/selectors/Onboarding/OnboardingCarousel.selectors';
+import generateTestId from '../../../../wdio/utils/generateTestId';
+import trackOnboarding from '../../../util/metrics/TrackOnboarding/trackOnboarding';
 
 const IMAGE_3_RATIO = 215 / 315;
 const IMAGE_2_RATIO = 222 / 239;
@@ -139,27 +141,20 @@ class OnboardingCarousel extends PureComponent {
     currentTab: 1,
   };
 
-  trackEvent = (eventArgs) => {
-    InteractionManager.runAfterInteractions(async () => {
-      const metricsOptIn = await DefaultPreference.get(METRICS_OPT_IN);
-      if (metricsOptIn) {
-        AnalyticsV2.trackEvent(eventArgs);
-      } else {
-        this.props.saveOnboardingEvent(eventArgs);
-      }
-    });
+  track = (event, properties) => {
+    trackOnboarding(event, properties, this.props.saveOnboardingEvent);
   };
 
   onPressGetStarted = () => {
     this.props.navigation.navigate('Onboarding');
-    this.trackEvent(ANALYTICS_EVENTS_V2.ONBOARDING_STARTED);
+    this.track(MetaMetricsEvents.ONBOARDING_STARTED);
   };
 
   renderTabBar = () => <View />;
 
   onChangeTab = (obj) => {
     this.setState({ currentTab: obj.i + 1 });
-    this.trackEvent(ANALYTICS_EVENTS_V2.ONBOARDING_WELCOME_SCREEN_ENGAGEMENT, {
+    this.track(MetaMetricsEvents.ONBOARDING_WELCOME_SCREEN_ENGAGEMENT, {
       message_title: strings(`onboarding_carousel.title${[obj.i + 1]}`, {
         locale: 'en',
       }),
@@ -175,7 +170,7 @@ class OnboardingCarousel extends PureComponent {
 
   componentDidMount = () => {
     this.updateNavBar();
-    this.trackEvent(ANALYTICS_EVENTS_V2.ONBOARDING_WELCOME_MESSAGE_VIEWED);
+    this.track(MetaMetricsEvents.ONBOARDING_WELCOME_MESSAGE_VIEWED);
   };
 
   componentDidUpdate = () => {
@@ -188,13 +183,19 @@ class OnboardingCarousel extends PureComponent {
     const styles = createStyles(colors);
 
     return (
-      <View style={baseStyles.flexGrow} testID={'onboarding-carousel-screen'}>
+      <View
+        style={baseStyles.flexGrow}
+        testID={OnboardingCarouselSelectorIDs.CONTAINER_ID}
+      >
         <OnboardingScreenWithBg screen={'carousel'}>
           <ScrollView
             style={baseStyles.flexGrow}
             contentContainerStyle={styles.scroll}
           >
-            <View style={styles.wrapper}>
+            <View
+              style={styles.wrapper}
+              testID={OnboardingCarouselSelectorIDs.CAROUSEL_CONTAINER_ID}
+            >
               <ScrollableTabView
                 style={styles.scrollTabs}
                 renderTabBar={this.renderTabBar}
@@ -205,11 +206,14 @@ class OnboardingCarousel extends PureComponent {
                   const imgStyleKey = `carouselImage${key}`;
                   return (
                     <View key={key} style={baseStyles.flexGrow}>
-                      <View style={styles.tab}>
-                        <Text
-                          style={styles.title}
-                          testID={`carousel-screen-${value}`}
-                        >
+                      <View
+                        style={styles.tab}
+                        {...generateTestId(
+                          Platform,
+                          WELCOME_SCREEN_CAROUSEL_TITLE_ID(key),
+                        )}
+                      >
+                        <Text style={styles.title}>
                           {strings(`onboarding_carousel.title${key}`)}
                         </Text>
                         <Text style={styles.subtitle}>
@@ -242,13 +246,12 @@ class OnboardingCarousel extends PureComponent {
               </View>
             </View>
           </ScrollView>
-          <View style={styles.ctas}>
+          <View
+            style={styles.ctas}
+            testID={OnboardingCarouselSelectorIDs.GET_STARTED_BUTTON_ID}
+          >
             <View style={styles.ctaWrapper}>
-              <StyledButton
-                type={'normal'}
-                onPress={this.onPressGetStarted}
-                testID={'onboarding-get-started-button'}
-              >
+              <StyledButton type={'normal'} onPress={this.onPressGetStarted}>
                 {strings('onboarding_carousel.get_started')}
               </StyledButton>
             </View>

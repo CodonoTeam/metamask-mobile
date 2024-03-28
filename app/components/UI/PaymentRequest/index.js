@@ -40,13 +40,27 @@ import {
 } from '../../../util/payment-link-generator';
 import Device from '../../../util/device';
 import currencySymbols from '../../../util/currency-symbols.json';
-import { NetworksChainId } from '@metamask/controllers';
+import { ChainId } from '@metamask/controller-utils';
 import { getTicker } from '../../../util/transactions';
 import { toLowerCaseEquals } from '../../../util/general';
-import { getTokenListArray } from '../../../reducers/tokens';
 import { utils as ethersUtils } from 'ethers';
 import { ThemeContext, mockTheme } from '../../../util/theme';
-import { isTokenDetectionSupportedForNetwork } from '@metamask/controllers/dist/util';
+import { isTestNet } from '../../../util/networks';
+import { isTokenDetectionSupportedForNetwork } from '@metamask/assets-controllers/dist/assetsUtil';
+import {
+  selectChainId,
+  selectTicker,
+} from '../../../selectors/networkController';
+import {
+  selectConversionRate,
+  selectCurrentCurrency,
+} from '../../../selectors/currencyRateController';
+import { selectTokenListArray } from '../../../selectors/tokenListController';
+import { selectTokens } from '../../../selectors/tokensController';
+import { selectContractExchangeRates } from '../../../selectors/tokenRatesController';
+import { selectSelectedAddress } from '../../../selectors/preferencesController';
+
+import { RequestPaymentViewSelectors } from '../../../../e2e/selectors/RequestPaymentView.selectors';
 
 const KEYBOARD_OFFSET = 120;
 const createStyles = (colors) =>
@@ -103,6 +117,13 @@ const createStyles = (colors) =>
       paddingTop: Device.isAndroid() ? 3 : 0,
       paddingLeft: 10,
       textTransform: 'uppercase',
+      color: colors.text.default,
+    },
+    testNetEth: {
+      ...fontStyles.normal,
+      fontSize: 24,
+      paddingTop: Device.isAndroid() ? 3 : 0,
+      paddingLeft: 10,
       color: colors.text.default,
     },
     fiatValue: {
@@ -412,12 +433,14 @@ class PaymentRequest extends PureComponent {
 
     if (isTDSupportedForNetwork) {
       const defaults =
-        chainId === NetworksChainId.mainnet
+        chainId === ChainId.mainnet
           ? defaultAssets
           : [{ ...defaultEth, symbol: getTicker(ticker), name: '' }];
       results = this.state.searchInputValue ? this.state.results : defaults;
     } else if (
-      Object.values(NetworksChainId).find((value) => value === chainId)
+      //Check to see if it is not a test net ticker symbol
+      Object.values(ChainId).find((value) => value === chainId) &&
+      !(parseInt(chainId, 10) > 1 && parseInt(chainId, 10) < 6)
     ) {
       results = [defaultEth];
     } else {
@@ -432,7 +455,10 @@ class PaymentRequest extends PureComponent {
       return token;
     });
     return (
-      <View style={baseStyles.flexGrow} testID={'request-screen'}>
+      <View
+        style={baseStyles.flexGrow}
+        testID={RequestPaymentViewSelectors.REQUEST_PAYMENT_CONTAINER_ID}
+      >
         <View>
           <Text style={styles.title}>
             {strings('payment_request.choose_asset')}
@@ -458,7 +484,7 @@ class PaymentRequest extends PureComponent {
               returnKeyType="go"
               value={this.state.searchInputValue}
               blurOnSubmit
-              testID={'request-search-asset-input'}
+              testID={RequestPaymentViewSelectors.TOKEN_SEARCH_INPUT_BOX}
               keyboardAppearance={themeAppearance}
             />
             {this.state.searchInputValue ? (
@@ -475,7 +501,10 @@ class PaymentRequest extends PureComponent {
             ) : null}
           </View>
         )}
-        <View style={styles.assetsWrapper} testID={'searched-asset-results'}>
+        <View
+          style={styles.assetsWrapper}
+          testID={RequestPaymentViewSelectors.REQUEST_ASSET_LIST_ID}
+        >
           <Text style={styles.assetsTitle}>
             {this.state.searchInputValue
               ? strings('payment_request.search_results')
@@ -710,6 +739,7 @@ class PaymentRequest extends PureComponent {
       showError,
       selectedAsset,
       internalPrimaryCurrency,
+      chainId,
     } = this.state;
     const currencySymbol = currencySymbols[currentCurrency];
     const exchangeRate =
@@ -727,7 +757,10 @@ class PaymentRequest extends PureComponent {
       switchable = false;
     }
     return (
-      <View style={styles.enterAmountWrapper} testID={'request-amount-screen'}>
+      <View
+        style={styles.enterAmountWrapper}
+        testID={RequestPaymentViewSelectors.REQUEST_PAYMENT_CONTAINER_ID}
+      >
         <View>
           <Text style={styles.title}>
             {strings('payment_request.enter_amount')}
@@ -754,10 +787,15 @@ class PaymentRequest extends PureComponent {
                     value={amount}
                     onSubmitEditing={this.onNext}
                     ref={this.amountInput}
-                    testID={'request-amount-input'}
+                    testID={
+                      RequestPaymentViewSelectors.REQUEST_AMOUNT_INPUT_BOX_ID
+                    }
                     keyboardAppearance={themeAppearance}
                   />
-                  <Text style={styles.eth} numberOfLines={1}>
+                  <Text
+                    style={isTestNet(chainId) ? styles.testNetEth : styles.eth}
+                    numberOfLines={1}
+                  >
                     {symbol}
                   </Text>
                 </View>
@@ -850,20 +888,16 @@ class PaymentRequest extends PureComponent {
 PaymentRequest.contextType = ThemeContext;
 
 const mapStateToProps = (state) => ({
-  conversionRate:
-    state.engine.backgroundState.CurrencyRateController.conversionRate,
-  currentCurrency:
-    state.engine.backgroundState.CurrencyRateController.currentCurrency,
-  contractExchangeRates:
-    state.engine.backgroundState.TokenRatesController.contractExchangeRates,
+  conversionRate: selectConversionRate(state),
+  currentCurrency: selectCurrentCurrency(state),
+  contractExchangeRates: selectContractExchangeRates(state),
   searchEngine: state.settings.searchEngine,
-  selectedAddress:
-    state.engine.backgroundState.PreferencesController.selectedAddress,
-  tokens: state.engine.backgroundState.TokensController.tokens,
+  tokens: selectTokens(state),
+  selectedAddress: selectSelectedAddress(state),
   primaryCurrency: state.settings.primaryCurrency,
-  ticker: state.engine.backgroundState.NetworkController.provider.ticker,
-  chainId: state.engine.backgroundState.NetworkController.provider.chainId,
-  tokenList: getTokenListArray(state),
+  ticker: selectTicker(state),
+  chainId: selectChainId(state),
+  tokenList: selectTokenListArray(state),
 });
 
 export default connect(mapStateToProps)(PaymentRequest);

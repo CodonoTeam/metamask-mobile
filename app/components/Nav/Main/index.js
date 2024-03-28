@@ -1,28 +1,34 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useContext,
+} from 'react';
 
 import {
   ActivityIndicator,
   AppState,
   StyleSheet,
   View,
+  Linking,
   PushNotificationIOS, // eslint-disable-line react-native/split-platform-components
 } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import PropTypes from 'prop-types';
-import { connect } from 'react-redux';
+import { connect, useSelector } from 'react-redux';
 import GlobalAlert from '../../UI/GlobalAlert';
 import BackgroundTimer from 'react-native-background-timer';
 import NotificationManager from '../../../core/NotificationManager';
 import Engine from '../../../core/Engine';
 import AppConstants from '../../../core/AppConstants';
 import PushNotification from 'react-native-push-notification';
-import I18n from '../../../../locales/i18n';
-import LockManager from '../../../core/LockManager';
+import I18n, { strings } from '../../../../locales/i18n';
 import FadeOutOverlay from '../../UI/FadeOutOverlay';
 import Device from '../../../util/device';
 import BackupAlert from '../../UI/BackupAlert';
 import Notification from '../../UI/Notification';
-import FiatOrders from '../../UI/FiatOrders';
+import RampOrders from '../../UI/Ramp';
 import {
   showTransactionNotification,
   hideCurrentNotification,
@@ -33,7 +39,7 @@ import {
 import ProtectYourWalletModal from '../../UI/ProtectYourWalletModal';
 import MainNavigator from './MainNavigator';
 import SkipAccountSecurityModal from '../../UI/SkipAccountSecurityModal';
-import { util } from '@metamask/controllers';
+import { query } from '@metamask/controller-utils';
 import SwapsLiveness from '../../UI/Swaps/SwapsLiveness';
 
 import {
@@ -45,8 +51,35 @@ import { createStackNavigator } from '@react-navigation/stack';
 import ReviewModal from '../../UI/ReviewModal';
 import { useTheme } from '../../../util/theme';
 import RootRPCMethodsUI from './RootRPCMethodsUI';
-import usePrevious from '../../hooks/usePrevious';
 import { colors as importedColors } from '../../../styles/common';
+import {
+  getNetworkImageSource,
+  getNetworkNameFromProviderConfig,
+} from '../../../util/networks';
+import {
+  ToastContext,
+  ToastVariants,
+} from '../../../component-library/components/Toast';
+import { useEnableAutomaticSecurityChecks } from '../../hooks/EnableAutomaticSecurityChecks';
+import { useMinimumVersions } from '../../hooks/MinimumVersions';
+import navigateTermsOfUse from '../../../util/termsOfUse/termsOfUse';
+import {
+  selectChainId,
+  selectProviderConfig,
+  selectProviderType,
+} from '../../../selectors/networkController';
+import { selectShowIncomingTransactionNetworks } from '../../../selectors/preferencesController';
+import { DEPRECATED_NETWORKS } from '../../../constants/network';
+import WarningAlert from '../../../components/UI/WarningAlert';
+import { GOERLI_DEPRECATED_ARTICLE } from '../../../constants/urls';
+import {
+  updateIncomingTransactions,
+  startIncomingTransactionPolling,
+  stopIncomingTransactionPolling,
+} from '../../../util/transaction-controller';
+///: BEGIN:ONLY_INCLUDE_IF(snaps)
+import { SnapsExecutionWebView } from '../../../lib/snaps';
+///: END:ONLY_INCLUDE_IF
 
 const Stack = createStackNavigator();
 
@@ -68,27 +101,36 @@ const Main = (props) => {
   const [forceReload, setForceReload] = useState(false);
   const [showRemindLaterModal, setShowRemindLaterModal] = useState(false);
   const [skipCheckbox, setSkipCheckbox] = useState(false);
+  const [showDeprecatedAlert, setShowDeprecatedAlert] = useState(true);
   const { colors } = useTheme();
   const styles = createStyles(colors);
 
   const backgroundMode = useRef(false);
   const locale = useRef(I18n.locale);
-  const lockManager = useRef();
   const removeConnectionStatusListener = useRef();
 
   const removeNotVisibleNotifications = props.removeNotVisibleNotifications;
 
-  const prevLockTime = usePrevious(props.lockTime);
+  useEnableAutomaticSecurityChecks();
+  useMinimumVersions();
 
-  const pollForIncomingTransactions = useCallback(async () => {
-    props.thirdPartyApiMode && (await Engine.refreshTransactionHistory());
-    // Stop polling if the app is in the background
-    if (!backgroundMode.current) {
-      setTimeout(() => {
-        pollForIncomingTransactions();
-      }, AppConstants.TX_CHECK_NORMAL_FREQUENCY);
+  useEffect(() => {
+    if (DEPRECATED_NETWORKS.includes(props.chainId)) {
+      setShowDeprecatedAlert(true);
+    } else {
+      setShowDeprecatedAlert(false);
     }
-  }, [backgroundMode, props.thirdPartyApiMode]);
+  }, [props.chainId]);
+
+  useEffect(() => {
+    const chainId = props.chainId;
+
+    if (props.showIncomingTransactionsNetworks[chainId]) {
+      startIncomingTransactionPolling();
+    } else {
+      stopIncomingTransactionPolling();
+    }
+  }, [props.showIncomingTransactionsNetworks, props.chainId]);
 
   const connectionChangeHandler = useCallback(
     (state) => {
@@ -109,7 +151,7 @@ const Main = (props) => {
     if (props.providerType !== 'rpc') {
       try {
         const { TransactionController } = Engine.context;
-        await util.query(TransactionController.ethQuery, 'blockNumber', []);
+        await query(TransactionController.ethQuery, 'blockNumber', []);
         props.setInfuraAvailabilityNotBlocked();
       } catch (e) {
         if (e.message === AppConstants.ERRORS.INFURA_BLOCKED_MESSAGE) {
@@ -131,11 +173,11 @@ const Main = (props) => {
   const handleAppStateChange = useCallback(
     (appState) => {
       const newModeIsBackground = appState === 'background';
+
       // If it was in background and it's not anymore
       // we need to stop the Background timer
       if (backgroundMode.current && !newModeIsBackground) {
         BackgroundTimer.stop();
-        pollForIncomingTransactions();
       }
 
       backgroundMode.current = newModeIsBackground;
@@ -144,16 +186,13 @@ const Main = (props) => {
       // the background timer, which is less intense
       if (backgroundMode.current) {
         removeNotVisibleNotifications();
+
         BackgroundTimer.runBackgroundTimer(async () => {
-          await Engine.refreshTransactionHistory();
+          await updateIncomingTransactions();
         }, AppConstants.TX_CHECK_BACKGROUND_FREQUENCY);
       }
     },
-    [
-      backgroundMode,
-      removeNotVisibleNotifications,
-      pollForIncomingTransactions,
-    ],
+    [backgroundMode, removeNotVisibleNotifications],
   );
 
   const initForceReload = () => {
@@ -190,14 +229,47 @@ const Main = (props) => {
     if (skipCheckbox) toggleRemindLater();
   };
 
+  /**
+   * Current network
+   */
+  const providerConfig = useSelector(selectProviderConfig);
+  const previousProviderConfig = useRef(undefined);
+  const { toastRef } = useContext(ToastContext);
+
+  // Show network switch confirmation.
+  useEffect(() => {
+    if (
+      previousProviderConfig.current &&
+      (providerConfig.chainId !== previousProviderConfig.current.chainId ||
+        providerConfig.type !== previousProviderConfig.current.type)
+    ) {
+      const { type, chainId } = providerConfig;
+      const networkImage = getNetworkImageSource({
+        networkType: type,
+        chainId,
+      });
+      const networkName = getNetworkNameFromProviderConfig(providerConfig);
+      toastRef?.current?.showToast({
+        variant: ToastVariants.Network,
+        labelOptions: [
+          {
+            label: `${networkName} `,
+            isBold: true,
+          },
+          { label: strings('toast.now_active') },
+        ],
+        networkName,
+        networkImageSource: networkImage,
+      });
+    }
+    previousProviderConfig.current = providerConfig;
+  }, [providerConfig, toastRef]);
+
   useEffect(() => {
     if (locale.current !== I18n.locale) {
       locale.current = I18n.locale;
       initForceReload();
       return;
-    }
-    if (prevLockTime !== props.lockTime) {
-      lockManager.current && lockManager.current.updateLockTime(props.lockTime);
     }
   });
 
@@ -207,8 +279,10 @@ const Main = (props) => {
   }, [removeNotVisibleNotifications]);
 
   useEffect(() => {
-    AppState.addEventListener('change', handleAppStateChange);
-    lockManager.current = new LockManager(props.navigation, props.lockTime);
+    const appStateListener = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
     PushNotification.configure({
       requestPermissions: false,
       onNotification: (notification) => {
@@ -241,7 +315,6 @@ const Main = (props) => {
         showSimpleNotification: props.showSimpleNotification,
         removeNotificationById: props.removeNotificationById,
       });
-      pollForIncomingTransactions();
       checkInfuraAvailability();
       removeConnectionStatusListener.current = NetInfo.addEventListener(
         connectionChangeHandler,
@@ -249,13 +322,39 @@ const Main = (props) => {
     }, 1000);
 
     return function cleanup() {
-      AppState.removeEventListener('change', handleAppStateChange);
-      lockManager.current.stopListening();
+      appStateListener.remove();
       removeConnectionStatusListener.current &&
         removeConnectionStatusListener.current();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const termsOfUse = useCallback(async () => {
+    if (props.navigation) {
+      await navigateTermsOfUse(props.navigation.navigate);
+    }
+  }, [props.navigation]);
+
+  useEffect(() => {
+    termsOfUse();
+  }, [termsOfUse]);
+
+  const openDeprecatedNetworksArticle = () => {
+    Linking.openURL(GOERLI_DEPRECATED_ARTICLE);
+  };
+
+  const renderDeprecatedNetworkAlert = (chainId, backUpSeedphraseVisible) => {
+    if (DEPRECATED_NETWORKS.includes(chainId) && showDeprecatedAlert) {
+      return (
+        <WarningAlert
+          text={strings('networks.deprecated_goerli')}
+          dismissAlert={() => setShowDeprecatedAlert(false)}
+          onPressLearnMore={openDeprecatedNetworksArticle}
+          precedentAlert={backUpSeedphraseVisible}
+        />
+      );
+    }
+  };
 
   return (
     <React.Fragment>
@@ -265,15 +364,28 @@ const Main = (props) => {
         ) : (
           renderLoader()
         )}
+        {
+          ///: BEGIN:ONLY_INCLUDE_IF(snaps)
+        }
+        <View>
+          <SnapsExecutionWebView />
+        </View>
+        {
+          ///: END:ONLY_INCLUDE_IF
+        }
         <GlobalAlert />
         <FadeOutOverlay />
         <Notification navigation={props.navigation} />
-        <FiatOrders />
+        <RampOrders />
         <SwapsLiveness />
         <BackupAlert
           onDismiss={toggleRemindLater}
           navigation={props.navigation}
         />
+        {renderDeprecatedNetworkAlert(
+          props.chainId,
+          props.backUpSeedphraseVisible,
+        )}
         <SkipAccountSecurityModal
           modalVisible={showRemindLaterModal}
           onCancel={skipAccountModalSecureNow}
@@ -296,10 +408,6 @@ Main.propTypes = {
    */
   navigation: PropTypes.object,
   /**
-   * Time to auto-lock the app after it goes in background mode
-   */
-  lockTime: PropTypes.number,
-  /**
    * Dispatch showing a transaction notification
    */
   showTransactionNotification: PropTypes.func,
@@ -313,9 +421,9 @@ Main.propTypes = {
   hideCurrentNotification: PropTypes.func,
   removeNotificationById: PropTypes.func,
   /**
-   * Indicates whether third party API mode is enabled
+   * Indicates whether networks allows incoming transactions
    */
-  thirdPartyApiMode: PropTypes.bool,
+  showIncomingTransactionsNetworks: PropTypes.object,
   /**
    * Network provider type
    */
@@ -336,12 +444,22 @@ Main.propTypes = {
    * Object that represents the current route info like params passed to it
    */
   route: PropTypes.object,
+  /**
+   * Current chain id
+   */
+  chainId: PropTypes.string,
+  /**
+   * backup seed phrase modal visible
+   */
+  backUpSeedphraseVisible: PropTypes.bool,
 };
 
 const mapStateToProps = (state) => ({
-  lockTime: state.settings.lockTime,
-  thirdPartyApiMode: state.privacy.thirdPartyApiMode,
-  providerType: state.engine.backgroundState.NetworkController.provider.type,
+  showIncomingTransactionsNetworks:
+    selectShowIncomingTransactionNetworks(state),
+  providerType: selectProviderType(state),
+  chainId: selectChainId(state),
+  backUpSeedphraseVisible: state.user.backUpSeedphraseVisible,
 });
 
 const mapDispatchToProps = (dispatch) => ({

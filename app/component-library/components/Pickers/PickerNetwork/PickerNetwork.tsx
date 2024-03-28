@@ -2,18 +2,20 @@
 
 // Third party dependencies.
 import React from 'react';
-import { TouchableOpacity } from 'react-native';
+import { Platform, TouchableOpacity } from 'react-native';
 
 // External dependencies.
-import { AvatarBaseSize } from '../../Avatars/AvatarBase';
-import AvatarNetwork from '../../Avatars/AvatarNetwork';
-import Icon, { IconName, IconSize } from '../../Icon';
-import Text, { TextVariant } from '../../Text';
+import Avatar, { AvatarSize, AvatarVariant } from '../../Avatars/Avatar';
+import Icon, { IconName, IconSize } from '../../Icons/Icon';
+import Text, { TextVariant } from '../../Texts/Text';
 import { useStyles } from '../../../hooks';
 
 // Internal dependencies.
 import { PickerNetworkProps } from './PickerNetwork.types';
 import stylesheet from './PickerNetwork.styles';
+import generateTestId from '../../../../../wdio/utils/generateTestId';
+import { NAVBAR_NETWORK_TEXT } from '../../../../../wdio/screen-objects/testIDs/Screens/WalletView.testIds';
+import { PICKERNETWORK_ARROW_TESTID } from './PickerNetwork.constants';
 
 const PickerNetwork = ({
   onPress,
@@ -26,15 +28,27 @@ const PickerNetwork = ({
 
   return (
     <TouchableOpacity style={styles.base} onPress={onPress} {...props}>
-      <AvatarNetwork
-        size={AvatarBaseSize.Xs}
+      <Avatar
+        variant={AvatarVariant.Network}
+        size={AvatarSize.Xs}
         name={label}
         imageSource={imageSource}
       />
-      <Text style={styles.label} variant={TextVariant.sBodyMD}>
+      <Text
+        style={styles.label}
+        numberOfLines={1}
+        variant={TextVariant.BodyMD}
+        {...generateTestId(Platform, NAVBAR_NETWORK_TEXT)}
+      >
         {label}
       </Text>
-      <Icon size={IconSize.Xs} name={IconName.ArrowDownOutline} />
+      {onPress && (
+        <Icon
+          size={IconSize.Xs}
+          name={IconName.ArrowDown}
+          testID={PICKERNETWORK_ARROW_TESTID}
+        />
+      )}
     </TouchableOpacity>
   );
 };

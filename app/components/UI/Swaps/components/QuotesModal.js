@@ -21,15 +21,19 @@ import {
   renderFromWei,
   toWei,
   weiToFiat,
+  calculateEthFeeForMultiLayer,
 } from '../../../../util/number';
 import { getQuotesSourceMessage } from '../utils';
 import Text from '../../../Base/Text';
 import Title from '../../../Base/Title';
 import Ratio from './Ratio';
 import { useTheme } from '../../../../util/theme';
-import { colors as importedColors } from '../../../../styles/common';
+import {
+  selectConversionRate,
+  selectCurrentCurrency,
+} from '../../../../selectors/currencyRateController';
 
-const createStyles = (colors) =>
+const createStyles = (colors, shadows) =>
   StyleSheet.create({
     modalView: {
       backgroundColor: colors.background.default,
@@ -37,13 +41,7 @@ const createStyles = (colors) =>
       alignItems: 'center',
       marginVertical: 50,
       borderRadius: 10,
-      shadowColor: importedColors.black,
-      shadowOffset: {
-        width: 0,
-        height: 5,
-      },
-      shadowOpacity: 0.36,
-      shadowRadius: 6.68,
+      ...shadows.size.sm,
       elevation: 11,
     },
     modal: {
@@ -116,18 +114,6 @@ const createStyles = (colors) =>
     red: {
       color: colors.error.default,
     },
-    bestBadge: {
-      flexDirection: 'row',
-    },
-    bestBadgeWrapper: {
-      paddingVertical: 0,
-      paddingHorizontal: 8,
-      backgroundColor: colors.primary.default,
-      borderRadius: 4,
-    },
-    bestBadgeText: {
-      color: colors.primary.inverse,
-    },
     transparent: {
       opacity: 0,
     },
@@ -152,14 +138,15 @@ function QuotesModal({
   quoteValues,
   showOverallValue,
   ticker,
+  multiLayerL1ApprovalFeeTotal,
 }) {
   const bestOverallValue =
     quoteValues?.[quotes[0].aggregator]?.overallValueOfQuote ?? 0;
   const [displayDetails, setDisplayDetails] = useState(false);
   const [selectedDetailsQuoteIndex, setSelectedDetailsQuoteIndex] =
     useState(null);
-  const { colors } = useTheme();
-  const styles = createStyles(colors);
+  const { colors, shadows } = useTheme();
+  const styles = createStyles(colors, shadows);
 
   // When index/quotes change we get a new selected quote in case it exists
   // (quotes.length can be shorter than selected index)
@@ -229,6 +216,14 @@ function QuotesModal({
       setDisplayDetails(false);
     }
   }, [displayDetails, selectedDetailsQuote]);
+
+  let selectedDetailsQuoteValuesEthFee = selectedDetailsQuoteValues?.ethFee;
+  if (multiLayerL1ApprovalFeeTotal) {
+    selectedDetailsQuoteValuesEthFee = calculateEthFeeForMultiLayer({
+      multiLayerL1FeeTotal: multiLayerL1ApprovalFeeTotal,
+      ethFee: selectedDetailsQuoteValuesEthFee,
+    });
+  }
 
   return (
     <Modal
@@ -322,14 +317,14 @@ function QuotesModal({
                   <View style={styles.detailsRow}>
                     <Text small>{strings('swaps.estimated_network_fees')}</Text>
                     <Text primary>
-                      {renderFromWei(toWei(selectedDetailsQuoteValues.ethFee))}{' '}
+                      {renderFromWei(toWei(selectedDetailsQuoteValuesEthFee))}{' '}
                       <Text reset bold>
                         {ticker}
                       </Text>{' '}
                       <Text>
                         (~
                         {weiToFiat(
-                          toWei(selectedDetailsQuoteValues.ethFee),
+                          toWei(selectedDetailsQuoteValuesEthFee),
                           conversionRate,
                           currentCurrency,
                         )}
@@ -393,6 +388,13 @@ function QuotesModal({
                       const { aggregator } = quote;
                       const isSelected = aggregator === selectedQuote;
                       const quoteValue = quoteValues[aggregator];
+                      let quoteEthFee = quoteValue?.ethFee;
+                      if (multiLayerL1ApprovalFeeTotal) {
+                        quoteEthFee = calculateEthFeeForMultiLayer({
+                          multiLayerL1FeeTotal: multiLayerL1ApprovalFeeTotal,
+                          ethFee: quoteEthFee,
+                        });
+                      }
                       return (
                         <TouchableOpacity
                           key={aggregator}
@@ -415,30 +417,14 @@ function QuotesModal({
                           <View style={styles.columnFee}>
                             <Text primary bold={isSelected}>
                               {weiToFiat(
-                                toWei(quoteValue?.ethFee ?? 0),
+                                toWei(quoteEthFee),
                                 conversionRate,
                                 currentCurrency,
                               )}
                             </Text>
                           </View>
                           <View style={styles.columnValue}>
-                            {index === 0 ? (
-                              showOverallValue ? (
-                                <View style={styles.bestBadge}>
-                                  <View style={styles.bestBadgeWrapper}>
-                                    <Text
-                                      bold
-                                      small
-                                      style={styles.bestBadgeText}
-                                    >
-                                      {strings('swaps.best')}
-                                    </Text>
-                                  </View>
-                                </View>
-                              ) : (
-                                <Text> - </Text>
-                              )
-                            ) : showOverallValue ? (
+                            {showOverallValue ? (
                               <Text primary style={styles.red}>
                                 -
                                 {weiToFiat(
@@ -511,13 +497,12 @@ QuotesModal.propTypes = {
   ticker: PropTypes.string,
   quoteValues: PropTypes.object,
   showOverallValue: PropTypes.bool,
+  multiLayerL1ApprovalFeeTotal: PropTypes.string,
 };
 
 const mapStateToProps = (state) => ({
-  conversionRate:
-    state.engine.backgroundState.CurrencyRateController.conversionRate,
-  currentCurrency:
-    state.engine.backgroundState.CurrencyRateController.currentCurrency,
+  conversionRate: selectConversionRate(state),
+  currentCurrency: selectCurrentCurrency(state),
   quoteValues: state.engine.backgroundState.SwapsController.quoteValues,
 });
 
